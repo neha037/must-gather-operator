@@ -4,7 +4,7 @@ package mustgather
 const (
 	// ValidationServiceAccount represents the validation type for Service account
 	ValidationServiceAccount = "Service Account"
-  
+
 	// ProtocolSFTP represents the SFTP (SSH File Transfer Protocol)
 	ProtocolSFTP = "SFTP"
 
@@ -16,4 +16,7 @@ const (
 
 	// MaxSFTPValidationRetries is the maximum number of retries for transient SFTP validation errors
 	MaxSFTPValidationRetries = 3
+
+	// podNameEnvVar is the environment variable name for the current pod's name
+	podNameEnvVar = "POD_NAME"
 )
