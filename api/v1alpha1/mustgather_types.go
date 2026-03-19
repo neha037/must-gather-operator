@@ -75,6 +75,12 @@ type GatherSpec struct {
 	Audit bool `json:"audit,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// Metrics specifies whether to collect Prometheus metrics. This is translated to a signal
+	// or command that can be respected by the default image
+	// or any custom image designed to do so.
+	Metrics bool `json:"metrics,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// Command is a string array representing the entrypoint for the custom image.
 	// This field is only honored when a custom image IS specified via imageStreamRef.
 	// +kubebuilder:validation:MaxItems=256

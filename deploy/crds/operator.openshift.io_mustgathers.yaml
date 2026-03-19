@@ -66,6 +66,12 @@ spec:
                       type: string
                     maxItems: 256
                     type: array
+                  metrics:
+                    description: |-
+                      Metrics specifies whether to collect Prometheus metrics. This is translated to a signal
+                      or command that can be respected by the default image
+                      or any custom image designed to do so.
+                    type: boolean
                 type: object
               imageStreamRef:
                 description: |-

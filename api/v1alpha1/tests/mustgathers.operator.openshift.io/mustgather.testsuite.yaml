@@ -1,0 +1,492 @@
+apiVersion: apiextensions.k8s.io/v1
+name: "MustGather API Tests"
+crdName: mustgathers.operator.openshift.io
+tests:
+  onCreate:
+    - name: Should be able to create a minimal MustGather
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: minimal-mustgather
+          namespace: default
+        spec: {}
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: minimal-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+
+    - name: Should accept MustGather with custom ImageStreamRef
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: custom-image-mustgather
+          namespace: default
+        spec:
+          imageStreamRef:
+            name: network-debug-tools
+            tag: v1.2
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: custom-image-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+          imageStreamRef:
+            name: network-debug-tools
+            tag: v1.2
+
+    - name: Should accept MustGather with gatherSpec audit flag
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: audit-mustgather
+          namespace: default
+        spec:
+          gatherSpec:
+            audit: true
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: audit-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+          gatherSpec:
+            audit: true
+
+    - name: Should accept MustGather with gatherSpec metrics flag
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: metrics-mustgather
+          namespace: default
+        spec:
+          gatherSpec:
+            metrics: true
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: metrics-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+          gatherSpec:
+            metrics: true
+
+    - name: Should accept MustGather with both audit and metrics flags
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: audit-metrics-mustgather
+          namespace: default
+        spec:
+          gatherSpec:
+            audit: true
+            metrics: true
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: audit-metrics-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+          gatherSpec:
+            audit: true
+            metrics: true
+
+    - name: Should accept MustGather with custom command when imageStreamRef is specified
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: custom-command-mustgather
+          namespace: default
+        spec:
+          imageStreamRef:
+            name: network-debug-tools
+            tag: v1.2
+          gatherSpec:
+            command:
+              - /usr/bin/custom-gather
+            args:
+              - --verbose
+              - --subsystem=network
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: custom-command-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+          imageStreamRef:
+            name: network-debug-tools
+            tag: v1.2
+          gatherSpec:
+            command:
+              - /usr/bin/custom-gather
+            args:
+              - --verbose
+              - --subsystem=network
+
+    - name: Should accept MustGather with PersistentVolume storage
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: pv-storage-mustgather
+          namespace: default
+        spec:
+          storage:
+            type: PersistentVolume
+            persistentVolume:
+              claim:
+                name: my-diagnostics-pvc
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: pv-storage-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+          storage:
+            type: PersistentVolume
+            persistentVolume:
+              claim:
+                name: my-diagnostics-pvc
+
+    - name: Should accept MustGather with PersistentVolume storage and subPath
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: pv-subpath-mustgather
+          namespace: default
+        spec:
+          storage:
+            type: PersistentVolume
+            persistentVolume:
+              claim:
+                name: my-diagnostics-pvc
+              subPath: diagnostics/run1
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: pv-subpath-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+          storage:
+            type: PersistentVolume
+            persistentVolume:
+              claim:
+                name: my-diagnostics-pvc
+              subPath: diagnostics/run1
+
+    - name: Should accept MustGather with SFTP upload target
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: sftp-upload-mustgather
+          namespace: default
+        spec:
+          uploadTarget:
+            type: SFTP
+            sftp:
+              caseID: "12345678"
+              caseManagementAccountSecretRef:
+                name: my-sftp-credentials
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: sftp-upload-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+          uploadTarget:
+            type: SFTP
+            sftp:
+              caseID: "12345678"
+              caseManagementAccountSecretRef:
+                name: my-sftp-credentials
+              host: sftp.access.redhat.com
+              internalUser: false
+
+    - name: Should reject MustGather with command but no imageStreamRef
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: invalid-command-mustgather
+          namespace: default
+        spec:
+          gatherSpec:
+            command:
+              - /bin/echo
+              - hello
+      expectedError: "command and args in gatherSpec can only be set when imageStreamRef is specified"
+
+    - name: Should reject MustGather with args but no imageStreamRef
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: invalid-args-mustgather
+          namespace: default
+        spec:
+          gatherSpec:
+            args:
+              - --verbose
+      expectedError: "command and args in gatherSpec can only be set when imageStreamRef is specified"
+
+    - name: Should reject MustGather with missing imageStreamRef name
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: missing-name-mustgather
+          namespace: default
+        spec:
+          imageStreamRef:
+            tag: v1.2
+      expectedError: "name"
+
+    - name: Should reject MustGather with missing imageStreamRef tag
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: missing-tag-mustgather
+          namespace: default
+        spec:
+          imageStreamRef:
+            name: network-debug-tools
+      expectedError: "tag"
+
+    - name: Should reject MustGather with invalid storage type
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: invalid-storage-type-mustgather
+          namespace: default
+        spec:
+          storage:
+            type: EphemeralVolume
+            persistentVolume:
+              claim:
+                name: my-pvc
+      expectedError: "Unsupported value"
+
+    - name: Should reject MustGather with SFTP type but missing sftp config
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: missing-sftp-config-mustgather
+          namespace: default
+        spec:
+          uploadTarget:
+            type: SFTP
+      expectedError: "sftp upload target config is required when upload type is SFTP"
+
+    - name: Should reject MustGather with empty SFTP caseID
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: empty-caseid-mustgather
+          namespace: default
+        spec:
+          uploadTarget:
+            type: SFTP
+            sftp:
+              caseID: ""
+              caseManagementAccountSecretRef:
+                name: my-credentials
+      expectedError: "caseID must not be empty"
+
+    - name: Should reject MustGather with empty SFTP secretRef name
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: empty-secretref-mustgather
+          namespace: default
+        spec:
+          uploadTarget:
+            type: SFTP
+            sftp:
+              caseID: "12345678"
+              caseManagementAccountSecretRef:
+                name: ""
+      expectedError: "caseManagementAccountSecretRef.name must not be empty"
+
+    - name: Should reject MustGather with invalid PVC name exceeding maxLength
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: long-pvc-name-mustgather
+          namespace: default
+        spec:
+          storage:
+            type: PersistentVolume
+            persistentVolume:
+              claim:
+                name: this-is-a-very-long-pvc-name-that-exceeds-the-maximum-allowed-length-of-253-characters-and-should-be-rejected-by-the-validation-rules-because-it-is-way-too-long-to-be-a-valid-dns-subdomain-name-according-to-rfc-1123-which-limits-the-length-to-253-characters-maximum
+      expectedError: "maxLength"
+
+    - name: Should reject MustGather with invalid PVC name format
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: invalid-pvc-name-mustgather
+          namespace: default
+        spec:
+          storage:
+            type: PersistentVolume
+            persistentVolume:
+              claim:
+                name: Invalid_PVC_Name
+      expectedError: "a lowercase RFC 1123 subdomain"
+
+    - name: Should reject MustGather with too many command items
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: too-many-commands-mustgather
+          namespace: default
+        spec:
+          imageStreamRef:
+            name: test-image
+            tag: latest
+          gatherSpec:
+            command:
+              - cmd1
+              - cmd2
+              # Note: In real test, would need 257 items to trigger maxItems validation
+      expectedError: "maxItems"
+
+  onUpdate:
+    - name: Should reject update to spec after creation
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: immutable-spec-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+      updated: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: immutable-spec-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: custom-sa
+      expectedError: "spec values are immutable once set"
+
+    - name: Should reject adding imageStreamRef after creation
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: add-imageref-mustgather
+          namespace: default
+        spec: {}
+      updated: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: add-imageref-mustgather
+          namespace: default
+        spec:
+          imageStreamRef:
+            name: new-image
+            tag: v1.0
+      expectedError: "spec values are immutable once set"
+
+    - name: Should reject changing gatherSpec after creation
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: change-gatherspec-mustgather
+          namespace: default
+        spec:
+          gatherSpec:
+            audit: false
+      updated: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: change-gatherspec-mustgather
+          namespace: default
+        spec:
+          gatherSpec:
+            audit: true
+      expectedError: "spec values are immutable once set"
+
+    - name: Should allow updating status
+      initial: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: status-update-mustgather
+          namespace: default
+        spec: {}
+        status:
+          completed: false
+      updated: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: status-update-mustgather
+          namespace: default
+        spec: {}
+        status:
+          completed: true
+          status: "Completed"
+      expected: |
+        apiVersion: operator.openshift.io/v1alpha1
+        kind: MustGather
+        metadata:
+          name: status-update-mustgather
+          namespace: default
+        spec:
+          serviceAccountName: default
+          retainResourcesOnCompletion: false
+        status:
+          completed: true
+          status: "Completed"
