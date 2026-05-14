@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1248,7 +1249,7 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 			if !hasProxy {
 				ginkgo.Skip("cluster does not have proxy configured — operator deployment has no HTTP_PROXY/HTTPS_PROXY env vars")
 			}
-			ginkgo.GinkgoWriter.Printf("Proxy detected — HTTP_PROXY=%q, HTTPS_PROXY=%q, NO_PROXY=%q\n", httpProxy, httpsProxy, noProxy)
+			ginkgo.GinkgoWriter.Printf("Proxy detected — HTTP_PROXY=%q, HTTPS_PROXY=%q, NO_PROXY=%q\n", redactProxyURL(httpProxy), redactProxyURL(httpsProxy), noProxy)
 			mustGatherName = fmt.Sprintf("mg-proxy-upload-e2e-%d", time.Now().UnixNano())
 		})
 
@@ -2466,6 +2467,20 @@ func getOperatorProxyEnvVars() (httpProxy, httpsProxy, noProxy string, hasProxy 
 	}
 	hasProxy = httpProxy != "" || httpsProxy != ""
 	return
+}
+
+func redactProxyURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "<invalid-url>"
+	}
+	if u.User != nil {
+		u.User = url.UserPassword("<redacted>", "<redacted>")
+	}
+	return u.String()
 }
 
 func createImageStream(name, imageName, tagName string) {
