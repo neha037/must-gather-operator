@@ -149,6 +149,7 @@ type SFTPSpec struct {
 	// +required
 	CaseID string `json:"caseID,omitempty"`
 
+	//nolint:kubeapilinter //reason: empty struct is not valid; XValidation enforces non-empty name
 	// caseManagementAccountSecretRef is the secret containing a username and password field
 	// to be used to authenticate with Red Hat case management systems.
 	// +required
