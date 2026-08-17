@@ -318,9 +318,9 @@ type MustGather struct {
 	// spec defines the desired configuration for a must-gather operation.
 	// +required
 	Spec MustGatherSpec `json:"spec,omitzero"`
-	//nolint:kubeapilinter //reason: Status contains Completed (required bool) which prevents making it optional
+	//nolint:kubeapilinter //reason: status is managed via the status subresource and must be optional on CREATE; Completed is always serialized as a non-pointer bool
 	// status is the observed state of the must-gather operation.
-	// +required
+	// +optional
 	Status MustGatherStatus `json:"status,omitempty"`
 }
 

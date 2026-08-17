@@ -427,7 +427,6 @@ spec:
             type: object
         required:
         - spec
-        - status
         type: object
         x-kubernetes-validations:
         - message: spec values are immutable once set
@@ -852,7 +851,6 @@ spec:
             type: object
         required:
         - spec
-        - status
         type: object
         x-kubernetes-validations:
         - message: spec values are immutable once set
