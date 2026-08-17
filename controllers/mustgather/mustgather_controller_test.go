@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 
 	//nolint:staticcheck -- code is tied to a specific controller-runtime version. See OSD-11458
 
@@ -1565,7 +1566,7 @@ func TestReconcile(t *testing.T) {
 							Type: mustgatherv1.StorageTypePersistentVolume,
 							PersistentVolume: mustgatherv1.PersistentVolumeConfig{
 								Claim:   mustgatherv1.PersistentVolumeClaimReference{Name: "test-pvc"},
-								SubPath: "my-data",
+								SubPath: ptr.To("my-data"),
 							},
 						},
 					},
@@ -2334,4 +2335,3 @@ func TestSFTPCredentialValidation(t *testing.T) {
 		})
 	}
 }
-

@@ -57,12 +57,19 @@ const (
 	knownHostsFile = "/tmp/must-gather-operator/.ssh/known_hosts"
 )
 
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 func outputSubPath(storage *mustgatherv1.Storage, directoryName string) (string, bool) {
 	if storage == nil || storage.Type != mustgatherv1.StorageTypePersistentVolume {
 		return "", false
 	}
 
-	base := strings.TrimSpace(storage.PersistentVolume.SubPath)
+	base := strings.TrimSpace(derefString(storage.PersistentVolume.SubPath))
 	base = strings.Trim(base, "/")
 
 	return path.Join(base, directoryName), true
@@ -141,8 +148,8 @@ func getJobTemplate(image string, operatorImage string, mustGather mustgatherv1.
 	}
 
 	var audit bool
-	if mustGather.Spec.GatherSpec != nil {
-		audit = mustGather.Spec.GatherSpec.Audit
+	if mustGather.Spec.GatherSpec != nil && mustGather.Spec.GatherSpec.Audit != nil {
+		audit = *mustGather.Spec.GatherSpec.Audit
 	}
 
 	timeout := time.Duration(0)
@@ -404,7 +411,7 @@ func getUploadContainer(
 	}
 	if hasObfuscateSource(obfuscate) {
 		outputMount.ReadOnly = true
-		if subPath := strings.Trim(obfuscate.Source.SubPath, "/"); subPath != "" {
+		if subPath := strings.Trim(derefString(obfuscate.Source.SubPath), "/"); subPath != "" {
 			outputMount.SubPath = subPath
 		}
 	} else {
@@ -427,7 +434,7 @@ func getUploadContainer(
 		// for the upload mount instead of creating a duplicate PVC Volume,
 		// which causes CSI multi-attach failures.
 		uploadMount.Name = outputVolumeName
-		base := strings.TrimSpace(storage.PersistentVolume.SubPath)
+		base := strings.TrimSpace(derefString(storage.PersistentVolume.SubPath))
 		base = strings.Trim(base, "/")
 		uploadMount.SubPath = path.Join(base, directoryName)
 	}
