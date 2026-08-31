@@ -36,6 +36,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -268,11 +269,11 @@ func (r *MustGatherReconciler) Reconcile(ctx context.Context, request reconcile.
 				reqLogger,
 				string(username),
 				string(password),
-				instance.Spec.UploadTarget.SFTP.Host,
+				derefString(instance.Spec.UploadTarget.SFTP.Host),
 			)
 			if validationErr != nil {
 				reqLogger.Error(validationErr, "SFTP credential validation failed")
-				return r.setValidationFailureStatus(ctx, reqLogger, instance, ProtocolSFTP, validationErr)
+				return r.setValidationFailureStatus(ctx, reqLogger, instance, ProtocolSFTP, goerror.New(sftpValidationFailedUserMessage))
 			}
 
 			reqLogger.Info("SFTP credentials validated successfully")
@@ -319,9 +320,12 @@ func (r *MustGatherReconciler) Reconcile(ctx context.Context, request reconcile.
 }
 
 func (r *MustGatherReconciler) handleJobCompletion(ctx context.Context, reqLogger logr.Logger, instance *mustgatherv1.MustGather, status string, reason string) (reconcile.Result, error) {
-	instance.Status.Status = status
-	instance.Status.Completed = true
-	instance.Status.Reason = reason
+	if instance.Status == nil {
+		instance.Status = &mustgatherv1.MustGatherStatus{}
+	}
+	instance.Status.Status = ptr.To(status)
+	instance.Status.Completed = ptr.To(true)
+	instance.Status.Reason = ptr.To(reason)
 	err := r.GetClient().Status().Update(ctx, instance)
 	if err != nil {
 		reqLogger.Error(err, "unable to update instance", "instance", instance.Name)
@@ -339,7 +343,10 @@ func (r *MustGatherReconciler) handleJobCompletion(ctx context.Context, reqLogge
 }
 
 func (r *MustGatherReconciler) updateStatus(ctx context.Context, instance *mustgatherv1.MustGather, job *batchv1.Job) (reconcile.Result, error) {
-	instance.Status.Completed = !job.Status.CompletionTime.IsZero()
+	if instance.Status == nil {
+		instance.Status = &mustgatherv1.MustGatherStatus{}
+	}
+	instance.Status.Completed = ptr.To(!job.Status.CompletionTime.IsZero())
 
 	return r.ManageSuccess(ctx, instance)
 }
@@ -347,6 +354,8 @@ func (r *MustGatherReconciler) updateStatus(ctx context.Context, instance *mustg
 // setValidationFailureStatus updates the MustGather status to indicate a validation failure.
 // It sets the status to Failed, marks it as completed, updates the reason with the validation type, and sets the timestamp.
 // validationType should describe what kind of validation failed (e.g., "SFTP", "Service Account", "Secret").
+// Callers must pass a user-safe validationErr: network-level details in SFTP connection
+// failures are a reachability oracle and must not be written to status or events.
 func (r *MustGatherReconciler) setValidationFailureStatus(
 	ctx context.Context,
 	reqLogger logr.Logger,
@@ -356,10 +365,14 @@ func (r *MustGatherReconciler) setValidationFailureStatus(
 ) (reconcile.Result, error) {
 	errorMessage := fmt.Sprintf("%s validation failed: %v", validationType, validationErr)
 
-	instance.Status.Status = "Failed"
-	instance.Status.Completed = true
-	instance.Status.Reason = errorMessage
-	instance.Status.LastUpdate = metav1.Now()
+	if instance.Status == nil {
+		instance.Status = &mustgatherv1.MustGatherStatus{}
+	}
+	instance.Status.Status = ptr.To("Failed")
+	instance.Status.Completed = ptr.To(true)
+	instance.Status.Reason = ptr.To(errorMessage)
+	now := metav1.Now()
+	instance.Status.LastUpdate = &now
 
 	apimeta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               "ReconcileError",
