@@ -1567,6 +1567,104 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 		})
 	})
 
+	ginkgo.Context("Gather Failure Upload Gating Tests", func() {
+		var mustGatherName string
+		var mustGatherCR *mustgatherv1.MustGather
+
+		ginkgo.BeforeEach(func() {
+			mustGatherName = fmt.Sprintf("mg-gather-fail-gate-%d", time.Now().UnixNano())
+		})
+
+		ginkgo.AfterEach(func() {
+			if mustGatherCR != nil {
+				ginkgo.By("Cleaning up MustGather CR")
+				_ = nonAdminClient.Delete(testCtx, mustGatherCR)
+
+				Eventually(func() bool {
+					err := nonAdminClient.Get(testCtx, client.ObjectKey{
+						Name:      mustGatherName,
+						Namespace: ns.Name,
+					}, &mustgatherv1.MustGather{})
+					return apierrors.IsNotFound(err)
+				}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+
+				mustGatherCR = nil
+			}
+		})
+
+		ginkgo.It("should skip upload and fail when gather exits non-zero [Skipped:Disconnected]", func() {
+			ginkgo.By("Creating a dummy SFTP secret so the operator creates an upload container")
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gather-fail-gate-secret",
+					Namespace: ns.Name,
+					Labels:    map[string]string{"test": nonAdminLabel},
+				},
+				Type: corev1.SecretTypeOpaque,
+				StringData: map[string]string{
+					"username": "dummy",
+					"password": "dummy",
+				},
+			}
+			err := nonAdminClient.Create(testCtx, secret)
+			if err != nil && !apierrors.IsAlreadyExists(err) {
+				Expect(err).NotTo(HaveOccurred(), "Failed to create dummy secret")
+			}
+
+			ginkgo.By("Creating MustGather CR with a gather command that exits 1")
+			mustGatherCR = createMustGatherCR(mustGatherName, ns.Name, serviceAccount, true, &MustGatherCROptions{
+				UploadTarget: &UploadTargetOptions{
+					CaseID:     "00000000",
+					SecretName: "gather-fail-gate-secret",
+					Host:       "sftp.example.invalid",
+				},
+				GatherSpec: &mustgatherv1.GatherSpec{
+					Command: []string{"/bin/bash"},
+					Args:    []string{"-c", "echo 'simulated gather failure'; exit 1"},
+				},
+			})
+
+			ginkgo.By("Waiting for MustGather to reach Failed status")
+			fetchedMG := &mustgatherv1.MustGather{}
+			Eventually(func() string {
+				err := nonAdminClient.Get(testCtx, client.ObjectKey{
+					Name:      mustGatherName,
+					Namespace: ns.Name,
+				}, fetchedMG)
+				if err != nil || fetchedMG.Status == nil {
+					return ""
+				}
+				return ptr.Deref(fetchedMG.Status.Status, "")
+			}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Failed"),
+				"MustGather should be Failed when gather exits non-zero")
+
+			ginkgo.By("Verifying upload container logs indicate skipped upload")
+			pods := &corev1.PodList{}
+			err = adminClient.List(testCtx, pods,
+				client.InNamespace(ns.Name),
+				client.MatchingLabels{jobNameLabelKey: mustGatherName},
+			)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pods.Items).NotTo(BeEmpty(), "Should have at least one pod for the Job")
+
+			lastPod := pods.Items[len(pods.Items)-1]
+			logs, err := getContainerLogs(ns.Name, lastPod.Name, uploadContainerName)
+			Expect(err).NotTo(HaveOccurred(), "Should be able to read upload container logs")
+			Expect(logs).To(ContainSubstring("Skipping upload"),
+				"Upload container should log that it is skipping upload due to missing gather success marker")
+
+			ginkgo.By("Verifying upload container exited with non-zero code")
+			var uploadExitCode int32 = -1
+			for _, cs := range lastPod.Status.ContainerStatuses {
+				if cs.Name == uploadContainerName && cs.State.Terminated != nil {
+					uploadExitCode = cs.State.Terminated.ExitCode
+				}
+			}
+			Expect(uploadExitCode).To(Equal(int32(1)),
+				"Upload container should exit 1 when gather success marker is absent")
+		})
+	})
+
 	ginkgo.Context("Proxy Upload Tests", func() {
 		var mustGatherName string
 		var mustGatherCR *mustgatherv1.MustGather
@@ -2067,11 +2165,19 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 				}, job)
 			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
-			ginkgo.By("Verifying Job has the command and args override")
-			Expect(job.Spec.Template.Spec.Containers[0].Command).To(Equal(command),
-				"Job container command should match the configured override")
-			Expect(job.Spec.Template.Spec.Containers[0].Args).To(Equal(args),
-				"Job container args should match the configured override")
+			ginkgo.By("Verifying Job has the command and args wrapped in bash for success marker")
+			gatherContainer := job.Spec.Template.Spec.Containers[0]
+			Expect(gatherContainer.Command[0]).To(Equal("/bin/bash"),
+				"Custom command should be wrapped in bash")
+			Expect(gatherContainer.Command[1]).To(Equal("-c"),
+				"Custom command should use -c flag")
+			Expect(gatherContainer.Command[2]).To(ContainSubstring(`"$@"`),
+				"Wrapped script should pass through original command via \"$@\"")
+			Expect(gatherContainer.Command[2]).To(ContainSubstring(".gather-success"),
+				"Wrapped script should write gather success marker")
+			expectedArgs := append(command, args...)
+			Expect(gatherContainer.Args).To(Equal(expectedArgs),
+				"Job container args should contain original command + args")
 		})
 	})
 
