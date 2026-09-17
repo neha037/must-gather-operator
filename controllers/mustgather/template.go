@@ -30,7 +30,7 @@ const (
 
 	gatherCommandBinaryAudit   = "gather_audit_logs"
 	gatherCommandBinaryNoAudit = "gather"
-	gatherCommand              = "set -o pipefail\ntimeout %v bash -x -c -- '/usr/bin/%v' 2>&1 | tee /must-gather/must-gather.log\nstatus=${PIPESTATUS[0]}\nif [[ $status -eq 124 || $status -eq 137 ]]; then\n  echo \"Gather timed out.\" | tee -a /must-gather/must-gather.log\n  touch " + gatherSuccessMarkerPath + "\n  exit 0\nfi\nif [[ $status -ne 0 ]]; then\n  exit $status\nfi\ntouch " + gatherSuccessMarkerPath
+	gatherCommand              = "set -o pipefail\nrm -f " + gatherSuccessMarkerPath + "\ntimeout %v bash -x -c -- '/usr/bin/%v' 2>&1 | tee /must-gather/must-gather.log\nstatus=${PIPESTATUS[0]}\nif [[ $status -eq 124 || $status -eq 137 ]]; then\n  echo \"Gather timed out.\" | tee -a /must-gather/must-gather.log\n  touch " + gatherSuccessMarkerPath + "\n  status=0\nfi\nif [[ $status -ne 0 ]]; then\n  exit $status\nfi\ntouch " + gatherSuccessMarkerPath
 	gatherContainerName        = "gather"
 
 	// Environment variables for time-based log filtering
@@ -342,14 +342,14 @@ func getGatherContainer(image string, audit bool, timeout time.Duration, storage
 		if shouldAppendObfuscateChown(obfuscate) {
 			// Wrap the custom command so chown still runs for the upload container (UID 65534).
 			// "$@" re-executes the original command+args with proper quoting preserved.
-			wrappedCmd := "\"$@\"\n" + obfuscateChownSuffix
+			wrappedCmd := "rm -f " + gatherSuccessMarkerPath + "\n\"$@\"\n" + obfuscateChownSuffix
 			container.Command = []string{"/bin/bash", "-c", wrappedCmd, "--"}
 			allArgs := make([]string, 0, len(command)+len(args))
 			allArgs = append(allArgs, command...)
 			allArgs = append(allArgs, args...)
 			container.Args = allArgs
 		} else {
-			wrappedCmd := "\"$@\"\n" + gatherSuccessMarkerSuffix
+			wrappedCmd := "rm -f " + gatherSuccessMarkerPath + "\n\"$@\"\n" + gatherSuccessMarkerSuffix
 			container.Command = []string{"/bin/bash", "-c", wrappedCmd, "--"}
 			allArgs := make([]string, 0, len(command)+len(args))
 			allArgs = append(allArgs, command...)

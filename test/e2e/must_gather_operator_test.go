@@ -1578,7 +1578,7 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 		ginkgo.AfterEach(func() {
 			if mustGatherCR != nil {
 				ginkgo.By("Cleaning up MustGather CR")
-				_ = nonAdminClient.Delete(testCtx, mustGatherCR)
+				Expect(nonAdminClient.Delete(testCtx, mustGatherCR)).To(Succeed())
 
 				Eventually(func() bool {
 					err := nonAdminClient.Get(testCtx, client.ObjectKey{

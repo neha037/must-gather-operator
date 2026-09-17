@@ -1276,10 +1276,10 @@ func Test_gatherCommand_timeoutWritesMarker(t *testing.T) {
 		t.Fatal("expected timeout handling for exit codes 124/137")
 	}
 	timeoutBlock := gatherCmd[timeoutIdx:]
-	exitIdx := strings.Index(timeoutBlock, "exit 0")
+	statusIdx := strings.Index(timeoutBlock, "status=0")
 	markerIdx := strings.Index(timeoutBlock, gatherSuccessMarkerPath)
-	if markerIdx == -1 || markerIdx > exitIdx {
-		t.Fatal("success marker must be written before exit 0 in the timeout block")
+	if markerIdx == -1 || statusIdx == -1 || markerIdx > statusIdx {
+		t.Fatal("success marker must be written before status=0 in the timeout block")
 	}
 }
 
