@@ -3,7 +3,10 @@ package mustgather
 import (
 	"fmt"
 	"math"
+	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1371,5 +1374,56 @@ func Test_uploadCommand_obfuscateOnly_gatherSuccessGate(t *testing.T) {
 
 	if !strings.Contains(uploadCmd, gatherSuccessMarkerPath) {
 		t.Fatal("obfuscate-only mode (with gather) must check for gather success marker")
+	}
+}
+
+func Test_gatherCommand_failureRemovesMarker(t *testing.T) {
+	container := getGatherContainer("img", false, 300*time.Second, nil, "", nil, nil, nil, "", nil)
+	gatherCmd := container.Command[2]
+
+	failIdx := strings.Index(gatherCmd, "exit $status")
+	rmIdx := strings.Index(gatherCmd, "rm -f "+gatherSuccessMarkerPath+"\n  exit $status")
+	if failIdx == -1 || rmIdx == -1 {
+		t.Fatalf("gatherCommand non-zero branch must rm -f the success marker before exit $status, got:\n%s", gatherCmd)
+	}
+}
+
+func Test_suffixes_markerSemantics(t *testing.T) {
+	tests := []struct {
+		name   string
+		suffix string
+	}{
+		{"gatherSuccessMarkerSuffix", gatherSuccessMarkerSuffix},
+		{"obfuscateChownSuffix", obfuscateChownSuffix},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+"_success_creates_marker", func(t *testing.T) {
+			marker := filepath.Join(t.TempDir(), ".gather-success")
+			script := strings.ReplaceAll(tt.suffix, gatherSuccessMarkerPath, marker)
+			cmd := exec.Command("bash", "-c", "true\n"+script)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("expected exit 0, got %v: %s", err, out)
+			}
+			if _, statErr := os.Stat(marker); statErr != nil {
+				t.Fatal("success marker should exist after successful gather")
+			}
+		})
+		t.Run(tt.name+"_failure_removes_marker", func(t *testing.T) {
+			marker := filepath.Join(t.TempDir(), ".gather-success")
+			if err := os.WriteFile(marker, nil, 0644); err != nil {
+				t.Fatal(err)
+			}
+			script := strings.ReplaceAll(tt.suffix, gatherSuccessMarkerPath, marker)
+			cmd := exec.Command("bash", "-c", "false\n"+script)
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("expected non-zero exit, got 0: %s", out)
+			}
+			if _, statErr := os.Stat(marker); statErr == nil {
+				t.Fatal("success marker must be removed after failed gather")
+			}
+		})
 	}
 }

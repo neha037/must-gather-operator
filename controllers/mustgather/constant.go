@@ -47,5 +47,5 @@ const (
 	// Captures the gather exit status first, writes the success marker on zero exit,
 	// runs chown (|| true so non-root images don't cause retries), then exits with
 	// the original status so gather failures propagate.
-	obfuscateChownSuffix = "gather_rc=$?; if [ $gather_rc -eq 0 ]; then touch " + gatherSuccessMarkerPath + "; fi; chown -R 65534:65534 /must-gather || true; exit $gather_rc"
+	obfuscateChownSuffix = "gather_rc=$?; if [ $gather_rc -eq 0 ]; then touch " + gatherSuccessMarkerPath + "; else rm -f " + gatherSuccessMarkerPath + "; fi; chown -R 65534:65534 /must-gather || true; exit $gather_rc"
 )
