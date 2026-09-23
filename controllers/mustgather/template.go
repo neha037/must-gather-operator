@@ -30,7 +30,7 @@ const (
 
 	gatherCommandBinaryAudit   = "gather_audit_logs"
 	gatherCommandBinaryNoAudit = "gather"
-	gatherCommand              = "set -o pipefail\nrm -f " + gatherSuccessMarkerPath + "\ntimeout %v bash -x -c -- '/usr/bin/%v' 2>&1 | tee /must-gather/must-gather.log\nstatus=${PIPESTATUS[0]}\nif [[ $status -eq 124 || $status -eq 137 ]]; then\n  echo \"Gather timed out.\" | tee -a /must-gather/must-gather.log\n  touch " + gatherSuccessMarkerPath + "\n  status=0\nfi\nif [[ $status -ne 0 ]]; then\n  rm -f " + gatherSuccessMarkerPath + "\n  exit $status\nfi\ntouch " + gatherSuccessMarkerPath
+	gatherCommand              = "set -o pipefail\nrm -f " + gatherSuccessMarkerPath + "\ntimeout %v bash -x -c -- '/usr/bin/%v' 2>&1 | tee /must-gather/must-gather.log\nstatus=${PIPESTATUS[0]}\nif [[ $status -ne 0 ]]; then\n  rm -f " + gatherSuccessMarkerPath + "\n  exit $status\nfi\ntouch " + gatherSuccessMarkerPath
 	gatherContainerName        = "gather"
 
 	// Environment variables for time-based log filtering

@@ -1270,19 +1270,15 @@ func Test_gatherCommand_successMarker(t *testing.T) {
 	}
 }
 
-func Test_gatherCommand_timeoutWritesMarker(t *testing.T) {
+func Test_gatherCommand_timeoutFallsThrough(t *testing.T) {
 	container := getGatherContainer("img", false, 300*time.Second, nil, "", nil, nil, nil, "", nil)
 	gatherCmd := container.Command[2]
 
-	timeoutIdx := strings.Index(gatherCmd, "124 || $status -eq 137")
-	if timeoutIdx == -1 {
-		t.Fatal("expected timeout handling for exit codes 124/137")
+	if strings.Contains(gatherCmd, "124 || $status -eq 137") {
+		t.Fatal("gatherCommand must not have a timeout special-case block; 124/137 should fall through to the non-zero exit path")
 	}
-	timeoutBlock := gatherCmd[timeoutIdx:]
-	statusIdx := strings.Index(timeoutBlock, "status=0")
-	markerIdx := strings.Index(timeoutBlock, gatherSuccessMarkerPath)
-	if markerIdx == -1 || statusIdx == -1 || markerIdx > statusIdx {
-		t.Fatal("success marker must be written before status=0 in the timeout block")
+	if !strings.Contains(gatherCmd, "exit $status") {
+		t.Fatal("gatherCommand must exit with the original status on non-zero")
 	}
 }
 
