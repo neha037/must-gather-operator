@@ -371,6 +371,9 @@ func (r *MustGatherReconciler) buildJobFailureReason(ctx context.Context, reqLog
 		code := cs.State.Terminated.ExitCode
 		switch cs.Name {
 		case gatherContainerName:
+			if cs.State.Terminated.Reason == "OOMKilled" {
+				return fmt.Sprintf("gather failed (exit code %d)", code)
+			}
 			if code == 124 || code == 137 {
 				return fmt.Sprintf("gather timed out (exit code %d)", code)
 			}

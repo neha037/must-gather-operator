@@ -1397,7 +1397,7 @@ func Test_suffixes_markerSemantics(t *testing.T) {
 		t.Run(tt.name+"_success_creates_marker", func(t *testing.T) {
 			marker := filepath.Join(t.TempDir(), ".gather-success")
 			script := strings.ReplaceAll(tt.suffix, gatherSuccessMarkerPath, marker)
-			cmd := exec.Command("bash", "-c", "true\n"+script)
+			cmd := exec.Command("bash", "-c", "true\n"+script) //nolint:gosec // script is a package constant, not user input
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("expected exit 0, got %v: %s", err, out)
@@ -1408,11 +1408,11 @@ func Test_suffixes_markerSemantics(t *testing.T) {
 		})
 		t.Run(tt.name+"_failure_removes_marker", func(t *testing.T) {
 			marker := filepath.Join(t.TempDir(), ".gather-success")
-			if err := os.WriteFile(marker, nil, 0644); err != nil {
+			if err := os.WriteFile(marker, nil, 0600); err != nil {
 				t.Fatal(err)
 			}
 			script := strings.ReplaceAll(tt.suffix, gatherSuccessMarkerPath, marker)
-			cmd := exec.Command("bash", "-c", "false\n"+script)
+			cmd := exec.Command("bash", "-c", "false\n"+script) //nolint:gosec // script is a package constant, not user input
 			out, err := cmd.CombinedOutput()
 			if err == nil {
 				t.Fatalf("expected non-zero exit, got 0: %s", out)

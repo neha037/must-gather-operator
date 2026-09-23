@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -2399,9 +2400,9 @@ func TestSFTPCredentialValidation(t *testing.T) {
 
 func Test_buildJobFailureReason(t *testing.T) {
 	s := scheme.Scheme
-	_ = mustgatherv1.SchemeBuilder.AddToScheme(s)
-	_ = corev1.SchemeBuilder.AddToScheme(s)
-	_ = batchv1.SchemeBuilder.AddToScheme(s)
+	utilruntime.Must(mustgatherv1.SchemeBuilder.AddToScheme(s))
+	utilruntime.Must(corev1.SchemeBuilder.AddToScheme(s))
+	utilruntime.Must(batchv1.SchemeBuilder.AddToScheme(s))
 
 	tests := []struct {
 		name       string
@@ -2433,6 +2434,16 @@ func Test_buildJobFailureReason(t *testing.T) {
 				}},
 			}},
 			wantReason: "gather timed out (exit code 137)",
+		},
+		{
+			name: "gather OOMKilled exit 137",
+			pods: []corev1.Pod{{
+				ObjectMeta: metav1.ObjectMeta{Name: "p1", Namespace: "ns", Labels: map[string]string{"job-name": "test-job"}},
+				Status: corev1.PodStatus{ContainerStatuses: []corev1.ContainerStatus{
+					{Name: gatherContainerName, State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 137, Reason: "OOMKilled"}}},
+				}},
+			}},
+			wantReason: "gather failed (exit code 137)",
 		},
 		{
 			name: "gather failed exit 1",

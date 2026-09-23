@@ -1571,9 +1571,27 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 	ginkgo.Context("Gather Failure Upload Gating Tests", func() {
 		var mustGatherName string
 		var mustGatherCR *mustgatherv1.MustGather
+		var gateTestPVC *corev1.PersistentVolumeClaim
 
 		ginkgo.BeforeEach(func() {
 			mustGatherName = fmt.Sprintf("mg-gather-fail-gate-%d", time.Now().UnixNano())
+
+			gateTestPVC = &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("gate-pvc-%d", time.Now().UnixNano()%100000),
+					Namespace: ns.Name,
+					Labels:    map[string]string{"test": nonAdminLabel},
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+					},
+				},
+			}
+			Expect(nonAdminClient.Create(testCtx, gateTestPVC)).To(Succeed(), "Failed to create PVC for gate test")
 		})
 
 		ginkgo.AfterEach(func() {
@@ -1591,12 +1609,17 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 
 				mustGatherCR = nil
 			}
+			if gateTestPVC != nil {
+				_ = nonAdminClient.Delete(testCtx, gateTestPVC)
+				gateTestPVC = nil
+			}
 		})
 
 		ginkgo.It("should skip upload and fail when gather exits non-zero", func() {
-			ginkgo.By("Creating MustGather CR with obfuscate enabled and a gather command that exits 1")
+			ginkgo.By("Creating MustGather CR with obfuscate enabled, PVC storage, and a gather command that exits 1")
 			mustGatherCR = createMustGatherCR(mustGatherName, ns.Name, serviceAccount, true, &MustGatherCROptions{
-				Obfuscate: &ObfuscateOptions{Enabled: true},
+				Obfuscate:        &ObfuscateOptions{Enabled: true},
+				PersistentVolume: &PersistentVolumeOptions{PVCName: gateTestPVC.Name},
 				GatherSpec: &mustgatherv1.GatherSpec{
 					Command: []string{"/bin/bash"},
 					Args:    []string{"-c", "echo 'simulated gather failure'; exit 1"},
@@ -1617,7 +1640,7 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 			}).WithTimeout(10*time.Minute).WithPolling(10*time.Second).Should(Equal("Failed"),
 				"MustGather should be Failed when gather exits non-zero")
 
-			Expect(ptr.Deref(fetchedMG.Status.Reason, "")).To(ContainSubstring("Job pods failed"),
+			Expect(ptr.Deref(fetchedMG.Status.Reason, "")).To(ContainSubstring("gather failed"),
 				"Failure must come from Job completion, not SFTP validation")
 
 			ginkgo.By("Verifying upload container logs indicate skipped upload")
