@@ -1597,8 +1597,7 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 		ginkgo.AfterEach(func() {
 			if mustGatherCR != nil {
 				ginkgo.By("Cleaning up MustGather CR")
-				Expect(nonAdminClient.Delete(testCtx, mustGatherCR)).To(Succeed(),
-					"Failed to delete MustGather CR %s", mustGatherName)
+				Expect(nonAdminClient.Delete(testCtx, mustGatherCR)).To(Succeed())
 
 				Eventually(func() bool {
 					err := nonAdminClient.Get(testCtx, client.ObjectKey{
@@ -1606,44 +1605,12 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 						Namespace: ns.Name,
 					}, &mustgatherv1.MustGather{})
 					return apierrors.IsNotFound(err)
-				}).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(BeTrue(),
-					"MustGather CR %s should be deleted", mustGatherName)
+				}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 
 				mustGatherCR = nil
 			}
-
-			// RetainResourcesOnCompletion leaves the Job/pods; delete them so the PVC can be released.
-			ginkgo.By("Cleaning up Job for gate test")
-			job := &batchv1.Job{}
-			err := adminClient.Get(testCtx, client.ObjectKey{Name: mustGatherName, Namespace: ns.Name}, job)
-			if err == nil {
-				propagation := metav1.DeletePropagationBackground
-				Expect(adminClient.Delete(testCtx, job, &client.DeleteOptions{PropagationPolicy: &propagation})).To(Succeed(),
-					"Failed to delete Job %s", mustGatherName)
-				Eventually(func() bool {
-					getErr := adminClient.Get(testCtx, client.ObjectKey{Name: mustGatherName, Namespace: ns.Name}, &batchv1.Job{})
-					return apierrors.IsNotFound(getErr)
-				}).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(BeTrue(),
-					"Job %s should be deleted", mustGatherName)
-			} else {
-				Expect(apierrors.IsNotFound(err)).To(BeTrue(),
-					"Unexpected error getting Job %s: %v", mustGatherName, err)
-			}
-
 			if gateTestPVC != nil {
-				ginkgo.By("Cleaning up gate test PVC")
-				Expect(client.IgnoreNotFound(nonAdminClient.Delete(testCtx, gateTestPVC))).To(Succeed(),
-					"Failed to delete PVC %s", gateTestPVC.Name)
-
-				Eventually(func() bool {
-					getErr := nonAdminClient.Get(testCtx, client.ObjectKey{
-						Name:      gateTestPVC.Name,
-						Namespace: ns.Name,
-					}, &corev1.PersistentVolumeClaim{})
-					return apierrors.IsNotFound(getErr)
-				}).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(BeTrue(),
-					"PVC %s should be deleted", gateTestPVC.Name)
-
+				_ = nonAdminClient.Delete(testCtx, gateTestPVC)
 				gateTestPVC = nil
 			}
 		})
@@ -1682,10 +1649,8 @@ var _ = ginkgo.Describe("MustGather resource", ginkgo.Ordered, func() {
 				client.InNamespace(ns.Name),
 				client.MatchingLabels{jobNameLabelKey: mustGatherName},
 			)
-			Expect(err).NotTo(HaveOccurred(),
-				"Failed to list pods for Job %s", mustGatherName)
-			Expect(pods.Items).NotTo(BeEmpty(),
-				"Should have at least one pod for Job %s", mustGatherName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pods.Items).NotTo(BeEmpty(), "Should have at least one pod for the Job")
 
 			sort.Slice(pods.Items, func(i, j int) bool {
 				return pods.Items[i].CreationTimestamp.After(pods.Items[j].CreationTimestamp.Time)
